@@ -147,6 +147,9 @@ boolean OpenBCI_32bit_Library::processChar(char character)
     case MULTI_CHAR_CMD_PROCESSING_INCOMING_SETTINGS_LEADOFF:
       processIncomingLeadOffSettings(character);
       break;
+    case MULTI_CHAR_CMD_PROCESSING_INCOMING_SETTINGS_CUSTOM_LEADOFF:
+      processIncomingCustomLeadOffSettings(character);
+      break;
     case MULTI_CHAR_CMD_SETTINGS_BOARD_MODE:
       processIncomingBoardMode(character);
       break;
@@ -293,6 +296,13 @@ boolean OpenBCI_32bit_Library::processChar(char character)
     case OPENBCI_CHANNEL_IMPEDANCE_SET:
       startMultiCharCmdTimer(MULTI_CHAR_CMD_PROCESSING_INCOMING_SETTINGS_LEADOFF);
       numberOfIncomingSettingsProcessedLeadOff = 1;
+      break;
+
+    // CUSTOM LEAD OFF IMPEDANCE DETECTION COMMANDS
+    case OPENBCI_CUSTOM_CHANNEL_IMPEDANCE_SET:
+      printlnAll("Received CUSTOM leadoff command");
+      startMultiCharCmdTimer(MULTI_CHAR_CMD_PROCESSING_INCOMING_SETTINGS_CUSTOM_LEADOFF);
+      numberOfIncomingSettingsProcessedCustomLeadOff = 1;
       break;
 
     case OPENBCI_CHANNEL_DEFAULT_ALL_SET: // reset all channel settings to default
@@ -803,7 +813,7 @@ void OpenBCI_32bit_Library::boardReset(void)
   printAll("LIS3DH Device ID: 0x");
   printlnHex(LIS3DH_getDeviceID());
   printlnAll("Firmware: v3.1.2");
-  printlnAll("--- HELLO FORKED [SUBMODULE] WORLD! ---");
+  printlnAll("--- Let's Go! ---");
   sendEOT();
   delay(5);
   wifi.reset();
@@ -1304,6 +1314,147 @@ void OpenBCI_32bit_Library::processIncomingLeadOffSettings(char character)
 
     // reset numberOfIncomingSettingsProcessedLeadOff
     numberOfIncomingSettingsProcessedLeadOff = 0;
+
+    // put flag back down
+    endMultiCharCmdTimer();
+  }
+}
+
+/**
+* @description When an 'o' is found on the serial port, we jump to this function
+*                  where we continue to read from the serial port and read the
+*                  remaining x bytes. 
+* @param `character` - {char} - The character you want to process...
+*/
+void OpenBCI_32bit_Library::processIncomingCustomLeadOffSettings(char character)
+{
+if (character == OPENBCI_CUSTOM_CHANNEL_IMPEDANCE_LATCH && numberOfIncomingSettingsProcessedCustomLeadOff < OPENBCI_NUMBER_OF_BYTES_SETTINGS_CUSTOM_LEAD_OFF - 1)
+  {
+    // We failed somehow and should just abort
+    // reset numberOfIncomingSettingsProcessedCustomLeadOff
+    numberOfIncomingSettingsProcessedCustomLeadOff = 0;
+
+    // put flag back down
+    endMultiCharCmdTimer();
+
+    if (!streaming)
+    {
+      printFailure();
+      printAll("too few chars");
+      sendEOT();
+    }
+    else if (wifi.present && wifi.tx)
+    {
+      wifi.sendStringLast("Failure: too few chars");
+    }
+
+    return;
+  }
+  switch (numberOfIncomingSettingsProcessedCustomLeadOff)
+  {
+  case 1: // channel number
+    // TODO: Adapt for CUSTOM lead-off modes
+    printAll("Received channel number: ");
+    printAll(character);
+    printlnAll();
+    currentChannelSetting = getChannelCommandForAsciiChar(character);
+    break;
+  case 2: // Current amplitude
+    printAll("Received Current amplitude: ");
+    printAll(character);
+    printlnAll();
+    optionalArgBuffer7[0] = getCustomLeadOffCurrentMagForAsciiChar(character);
+    break;
+  case 3: // Frequency selection
+    printAll("Received frequency selection: ");
+    printAll(character);
+    printlnAll();
+    optionalArgBuffer7[1] = getCustomLeadOffFrequencyForAsciiChar(character);
+    break;
+  case 4: // pchannel setting
+    printAll("Received pchannel setting: ");
+    printAll(character);
+    printlnAll();
+    optionalArgBuffer7[2] = getNumberForAsciiChar(character);
+    break;
+  case 5: // nchannel setting
+    printAll("Received nchannel setting: ");
+    printAll(character);
+    printlnAll();
+    optionalArgBuffer7[3] = getNumberForAsciiChar(character);
+    break;
+  case 6: // 'O' latch
+    if (character != OPENBCI_CUSTOM_CHANNEL_IMPEDANCE_LATCH)
+    {
+      if (!streaming)
+      {
+        printFailure();
+        printAll("Err: 7th char not O");
+        sendEOT();
+      }
+      else if (wifi.present && wifi.tx)
+      {
+        wifi.sendStringLast("Failure: Err: 7th char not O");
+      }
+      // We failed somehow and should just abort
+      // reset numberOfIncomingSettingsProcessedCustomLeadOff
+      numberOfIncomingSettingsProcessedCustomLeadOff = 0;
+
+      // put flag back down
+      endMultiCharCmdTimer();
+    }
+    break;
+  default: // should have exited
+    if (!streaming)
+    {
+      printFailure();
+      printAll("Err: too many chars");
+      sendEOT();
+    }
+    else if (wifi.present && wifi.tx)
+    {
+      wifi.sendStringLast("Failure: Err: too many chars");
+    }
+    // We failed somehow and should just abort
+    // reset numberOfIncomingSettingsProcessedCustomLeadOff
+    numberOfIncomingSettingsProcessedCustomLeadOff = 0;
+
+    // put flag back down
+    endMultiCharCmdTimer();
+    return;
+  }
+
+  // increment the number of bytes processed
+  numberOfIncomingSettingsProcessedCustomLeadOff++;
+
+  if (numberOfIncomingSettingsProcessedCustomLeadOff == (OPENBCI_NUMBER_OF_BYTES_SETTINGS_CUSTOM_LEAD_OFF))
+  {
+    // We are done processing lead off settings...
+
+    if (!streaming)
+    {
+      char buf[3];
+      printSuccess();
+      printAll("Lead off set for ");
+      printAll(itoa(currentChannelSetting + 1, buf, 10));
+      sendEOT();
+    }
+    else if (wifi.present && wifi.tx)
+    {
+      char buf[3];
+      wifi.sendStringMulti("Success: Lead off set for ");
+      delay(1);
+      wifi.sendStringLast(itoa(currentChannelSetting + 1, buf, 10));
+    }
+
+    leadOffSettings[currentChannelSetting][PCHAN] = optionalArgBuffer7[2];
+    leadOffSettings[currentChannelSetting][NCHAN] = optionalArgBuffer7[3];
+
+    // Set lead off settings
+    streamSafeCustomLeadOffSetForChannel(currentChannelSetting + 1, optionalArgBuffer7[0], optionalArgBuffer7[1], leadOffSettings[currentChannelSetting][PCHAN], leadOffSettings[currentChannelSetting][NCHAN]);
+
+    // reset numberOfIncomingSettingsProcessedCustomLeadOff
+    numberOfIncomingSettingsProcessedCustomLeadOff = 0;
 
     // put flag back down
     endMultiCharCmdTimer();
@@ -2037,6 +2188,44 @@ void OpenBCI_32bit_Library::streamSafeChannelDeactivate(byte channelNumber)
 
   // deactivate the channel
   deactivateChannel(channelNumber);
+
+  // Restart stream if need be
+  if (wasStreaming)
+  {
+    streamStart();
+  }
+}
+
+/**
+* @description Used to set lead off for a channel, if running must stop and start after...
+* @param `channelNumber` - [byte] - The channel you want to change
+* @param `pInput` - [byte] - Apply signal to P input, either ON (1) or OFF (0)
+* @param `nInput` - [byte] - Apply signal to N input, either ON (1) or OFF (0)
+* @author Andre Clerc
+*/
+void OpenBCI_32bit_Library::streamSafeCustomLeadOffSetForChannel(byte channelNumber, byte amplitudeCode, byte freqCode, byte pInput, byte nInput)
+{
+  boolean wasStreaming = streaming;
+
+  // Stop streaming if you are currently streaming
+  if (streaming)
+  {
+    streamStop();
+  }
+
+  // Enable the internal lead off comparators on ALL channels if DC lead off detection is used
+  if(freqCode == LOFF_FREQ_DC)
+  {
+    WREG(CONFIG4, 0xFF, BOTH_ADS);
+  } 
+  else
+  {
+    WREG(CONFIG4, 0x00, BOTH_ADS);
+  }
+  configureLeadOffDetection(amplitudeCode, freqCode);
+  changeChannelLeadOffDetect(channelNumber);
+
+  // leadOffSetForChannel(channelNumber, pInput, nInput);
 
   // Restart stream if need be
   if (wasStreaming)
@@ -4264,6 +4453,51 @@ void OpenBCI_32bit_Library::printlnAll(void)
   {
     wifi.sendStringMulti("\n");
     delay(1);
+  }
+}
+
+
+/**
+* @description Converts ascii character to get custom lead off current magnitude settings 
+* @param `asciiChar` - [char] - The ascii character to convert
+* @return [char] - Byte number value of acsii character, defaults to 0
+* @author Andre Clerc
+*/
+char OpenBCI_32bit_Library::getCustomLeadOffCurrentMagForAsciiChar(char asciiChar) {
+  switch (asciiChar)
+  {
+  case OPENBCI_CUSTOM_LEAD_OFF_CURRENT_MAG_6NA:
+    return LOFF_MAG_6NA;
+  case OPENBCI_CUSTOM_LEAD_OFF_CURRENT_MAG_24NA:
+    return LOFF_MAG_24NA;
+  case OPENBCI_CUSTOM_LEAD_OFF_CURRENT_MAG_6UA:
+    return LOFF_MAG_6UA;
+  case OPENBCI_CUSTOM_LEAD_OFF_CURRENT_MAG_24UA:
+    return LOFF_MAG_24UA;
+  default:
+    return 0x00;
+  }
+}
+
+/**
+* @description Converts ascii character to get custom lead off frequency settings 
+* @param `asciiChar` - [char] - The ascii character to convert
+* @return [char] - Byte number value of acsii character, defaults to 0
+* @author Andre Clerc
+*/
+char OpenBCI_32bit_Library::getCustomLeadOffFrequencyForAsciiChar(char asciiChar) {
+  switch (asciiChar)
+  {
+  case OPENBCI_CUSTOM_LEAD_OFF_FREQ_DC:
+    return LOFF_FREQ_DC;
+  case OPENBCI_CUSTOM_LEAD_OFF_FREQ_7p8HZ:
+    return LOFF_FREQ_7p8HZ;
+  case OPENBCI_CUSTOM_LEAD_OFF_FREQ_31p2HZ:
+    return LOFF_FREQ_31p2HZ;
+  case OPENBCI_CUSTOM_LEAD_OFF_FREQ_FS_4:
+    return LOFF_FREQ_FS_4;
+  default:
+    return 0x00;
   }
 }
 

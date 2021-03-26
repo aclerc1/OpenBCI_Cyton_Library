@@ -51,6 +51,7 @@ public:
     MULTI_CHAR_CMD_NONE,
     MULTI_CHAR_CMD_PROCESSING_INCOMING_SETTINGS_CHANNEL,
     MULTI_CHAR_CMD_PROCESSING_INCOMING_SETTINGS_LEADOFF,
+    MULTI_CHAR_CMD_PROCESSING_INCOMING_SETTINGS_CUSTOM_LEADOFF,
     MULTI_CHAR_CMD_SERIAL_PASSTHROUGH,
     MULTI_CHAR_CMD_SETTINGS_BOARD_MODE,
     MULTI_CHAR_CMD_SETTINGS_SAMPLE_RATE,
@@ -138,6 +139,8 @@ public:
   void    endSerial0(void);
   void    endSerial1(void);
   const char* getBoardMode(void);
+  char    getCustomLeadOffCurrentMagForAsciiChar(char);
+  char    getCustomLeadOffFrequencyForAsciiChar(char);
   char    getChannelCommandForAsciiChar(char);
   char    getCharSerial0(void);
   char    getCharSerial1(void);
@@ -181,6 +184,7 @@ public:
   void    processInsertMarker(char);
   void    processIncomingChannelSettings(char);
   void    processIncomingLeadOffSettings(char);
+  void    processIncomingCustomLeadOffSettings(char);
   void    reportDefaultChannelSettings(void);
   void    removeDaisy(void);
   void    resetADS(int);     // reset all the ADS1299's settings
@@ -205,6 +209,7 @@ public:
   void    streamSafeSetAllChannelsToDefault(void);
   void    streamSafeReportAllChannelDefaults(void);
   void    streamSafeLeadOffSetForChannel(byte, byte, byte);
+  void    streamSafeCustomLeadOffSetForChannel(byte, byte, byte, byte, byte);
   void    streamSafeTimeSendSyncSetPacket(void);
   void    streamStart(void);
   void    streamStop(void);
@@ -367,6 +372,7 @@ private:
   int     lastDRDYpinValue;
   int     numberOfIncomingSettingsProcessedChannel;
   int     numberOfIncomingSettingsProcessedLeadOff;
+  int     numberOfIncomingSettingsProcessedCustomLeadOff;
   int     numberOfIncomingSettingsProcessedBoardType;
   uint8_t optionalArgCounter;
   unsigned long multiCharCmdTimeout;  // the timeout in millis of the current multi char command
