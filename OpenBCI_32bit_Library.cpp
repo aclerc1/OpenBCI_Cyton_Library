@@ -803,7 +803,7 @@ void OpenBCI_32bit_Library::boardReset(void)
   printAll("LIS3DH Device ID: 0x");
   printlnHex(LIS3DH_getDeviceID());
   printlnAll("Firmware: v3.1.2");
-  printlnAll("--- HELLO FORKED WORLD! ---");
+  printlnAll("--- HELLO FORKED [SUBMODULE] WORLD! ---");
   sendEOT();
   delay(5);
   wifi.reset();
