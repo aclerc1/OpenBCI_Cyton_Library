@@ -300,7 +300,6 @@ boolean OpenBCI_32bit_Library::processChar(char character)
 
     // CUSTOM LEAD OFF IMPEDANCE DETECTION COMMANDS
     case OPENBCI_CUSTOM_CHANNEL_IMPEDANCE_SET:
-      printlnAll("Received CUSTOM leadoff command");
       startMultiCharCmdTimer(MULTI_CHAR_CMD_PROCESSING_INCOMING_SETTINGS_CUSTOM_LEADOFF);
       numberOfIncomingSettingsProcessedCustomLeadOff = 1;
       break;
@@ -1353,34 +1352,18 @@ if (character == OPENBCI_CUSTOM_CHANNEL_IMPEDANCE_LATCH && numberOfIncomingSetti
   switch (numberOfIncomingSettingsProcessedCustomLeadOff)
   {
   case 1: // channel number
-    // TODO: Adapt for CUSTOM lead-off modes
-    printAll("Received channel number: ");
-    printAll(character);
-    printlnAll();
     currentChannelSetting = getChannelCommandForAsciiChar(character);
     break;
   case 2: // Current amplitude
-    printAll("Received Current amplitude: ");
-    printAll(character);
-    printlnAll();
     optionalArgBuffer7[0] = getCustomLeadOffCurrentMagForAsciiChar(character);
     break;
   case 3: // Frequency selection
-    printAll("Received frequency selection: ");
-    printAll(character);
-    printlnAll();
     optionalArgBuffer7[1] = getCustomLeadOffFrequencyForAsciiChar(character);
     break;
   case 4: // pchannel setting
-    printAll("Received pchannel setting: ");
-    printAll(character);
-    printlnAll();
     optionalArgBuffer7[2] = getNumberForAsciiChar(character);
     break;
   case 5: // nchannel setting
-    printAll("Received nchannel setting: ");
-    printAll(character);
-    printlnAll();
     optionalArgBuffer7[3] = getNumberForAsciiChar(character);
     break;
   case 6: // 'O' latch

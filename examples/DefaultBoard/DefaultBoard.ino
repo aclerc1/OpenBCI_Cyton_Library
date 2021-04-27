@@ -14,6 +14,7 @@ boolean SDfileOpen = false; // Set true by SD_Card_Stuff.ino on successful file 
 void setup() {
   // Bring up the OpenBCI Board
   board.begin();
+  //board.beginDebug();
   // Bring up wifi
   wifi.begin(true, true);
 }
