@@ -812,6 +812,7 @@ void OpenBCI_32bit_Library::boardReset(void)
   printAll("LIS3DH Device ID: 0x");
   printlnHex(LIS3DH_getDeviceID());
   printlnAll("Firmware: v3.1.2");
+  printlnAll("Internal Firmware: v1.0.0");
   printlnAll("--- Let's Go! ---");
   sendEOT();
   delay(5);
